@@ -17,9 +17,19 @@ GENERATED := $(addprefix $(GENERATED_DIR)/,tc_bpfel.go tc_bpfel.o tc_bpfeb.go tc
 	shared_network_bpfel.go shared_network_bpfel.o shared_network_bpfeb.go shared_network_bpfeb.o fakeip_icmp_bpfel.go fakeip_icmp_bpfel.o fakeip_icmp_bpfeb.go fakeip_icmp_bpfeb.o manifest.txt)
 NATIVE_SOURCES := $(sort $(wildcard native/*.c native/*.h))
 
-.PHONY: generate check clean
+.PHONY: generate generate-force check clean
 
+# Committed BPF objects live in $(GENERATED_DIR). Regenerating them requires
+# NDK r29 Clang 21; when those objects are already present we reuse them and
+# skip the toolchain guard entirely. Use `make generate-force` to override.
 generate:
+	@if ls $(GENERATED_DIR)/*_bpfel.o >/dev/null 2>&1; then \
+		echo "Using committed eBPF objects in $(GENERATED_DIR); skipping regeneration."; \
+	else \
+		$(MAKE) generate-force; \
+	fi
+
+generate-force:
 	@test -x "$(BPF_CLANG)" || { echo "Android NDK r29 Clang not found at $(BPF_CLANG)" >&2; exit 1; }
 	@test -x "$(BPF_STRIP)" || { echo "Android NDK r29 llvm-strip not found at $(BPF_STRIP)" >&2; exit 1; }
 	@test -x "$(BPF_OBJCOPY)" || { echo "Android NDK r29 llvm-objcopy not found at $(BPF_OBJCOPY)" >&2; exit 1; }
